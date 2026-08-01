@@ -28,18 +28,33 @@ import json
 import os
 from typing import Annotated, Any, Never
 
+# --- original teaching imports (kept, not deleted) ---
+# from agent_framework import (
+#     AgentExecutor,
+#     AgentExecutorRequest,
+#     AgentExecutorResponse,
+#     ChatMessage,
+#     Role,
+#     WorkflowBuilder,
+#     WorkflowContext,
+#     ai_function,
+#     executor,
+# )
+# from agent_framework.openai import OpenAIChatClient
+
+# --- MAF 1.10 local-compatible imports ---
+# 本代码已经替换为本地api
 from agent_framework import (
     AgentExecutor,
     AgentExecutorRequest,
     AgentExecutorResponse,
-    ChatMessage,
-    Role,
+    Message,
     WorkflowBuilder,
     WorkflowContext,
-    ai_function,
     executor,
+    tool,
 )
-from agent_framework.openai import OpenAIChatClient
+from agent_framework.openai import OpenAIChatClient  # teaching import retained
 from azure.identity import AzureCliCredential
 from dotenv import load_dotenv
 from pydantic import BaseModel
@@ -77,7 +92,8 @@ class BookingConfirmation(BaseModel):
 # ============================================================================
 
 
-@ai_function(description="Check hotel room availability for a destination city")
+# --- original: @ai_function(...) ---
+@tool(description="Check hotel room availability for a destination city")  # 本代码已经替换为本地api
 def hotel_booking(destination: Annotated[str, "The destination city to check for hotel rooms"]) -> str:
     """
     Simulates checking hotel room availability.
@@ -93,7 +109,7 @@ def hotel_booking(destination: Annotated[str, "The destination city to check for
 
     # Simulate availability check
     cities_with_rooms = ["stockholm", "seattle", "tokyo", "london", "amsterdam"]
-    has_rooms = destination.lower() in cities_with_rooms
+    has_rooms = any(city in destination.lower() for city in cities_with_rooms)  # 本代码已经替换为本地api: substring match
 
     result = {"has_availability": has_rooms, "destination": destination}
 
@@ -119,7 +135,7 @@ def has_availability_condition(message: Any) -> bool:
         return True  # Default to True if not the expected type
 
     try:
-        result = BookingCheckResult.model_validate_json(message.agent_run_response.text)
+        result = BookingCheckResult.model_validate_json(message.agent_response.text)  # was agent_run_response
         print(f"✅ Availability check: {result.has_availability} for {result.destination}")
         return result.has_availability
     except Exception as e:
@@ -141,7 +157,7 @@ def no_availability_condition(message: Any) -> bool:
         return False
 
     try:
-        result = BookingCheckResult.model_validate_json(message.agent_run_response.text)
+        result = BookingCheckResult.model_validate_json(message.agent_response.text)  # was agent_run_response
         print(f"❌ No availability for {result.destination}")
         return not result.has_availability
     except Exception as e:
@@ -162,7 +178,7 @@ async def display_result(response: AgentExecutorResponse, ctx: WorkflowContext[N
     This executor receives the final agent response and yields it as output.
     """
     print(f"📤 Yielding workflow output...")
-    await ctx.yield_output(response.agent_run_response.text)
+    await ctx.yield_output(response.agent_response.text)  # was agent_run_response
 
 
 # ============================================================================
@@ -185,33 +201,43 @@ async def main() -> None:
     # Provider selection: Azure OpenAI (Responses API), OpenAI, or MiniMax
     # The OpenAIChatClient works with any OpenAI-compatible API, and targets the
     # Azure OpenAI Responses API when given an azure_endpoint + credential.
-    minimax_api_key = os.getenv("MINIMAX_API_KEY")
-    azure_openai_endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
-    openai_api_key = os.getenv("OPENAI_API_KEY")
+    #
+    # --- original teaching provider selection (kept, not deleted) ---
+    # minimax_api_key = os.getenv("MINIMAX_API_KEY")
+    # azure_openai_endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
+    # openai_api_key = os.getenv("OPENAI_API_KEY")
+    #
+    # if minimax_api_key:
+    #     chat_client = OpenAIChatClient(
+    #         base_url=os.environ.get("MINIMAX_BASE_URL", "https://api.minimax.io/v1"),
+    #         api_key=minimax_api_key,
+    #         model_id=os.environ.get("MINIMAX_MODEL_ID", "MiniMax-M3"),
+    #     )
+    #     print("Using MiniMax provider")
+    # elif azure_openai_endpoint:
+    #     chat_client = OpenAIChatClient(
+    #         azure_endpoint=azure_openai_endpoint,
+    #         credential=AzureCliCredential(),
+    #         model_id=os.environ.get("AZURE_OPENAI_DEPLOYMENT", "gpt-5-mini"),
+    #     )
+    #     print("Using Azure OpenAI (Responses API) provider")
+    # else:
+    #     chat_client = OpenAIChatClient(model_id="gpt-5-mini")
+    #     print("Using OpenAI provider")
 
-    if minimax_api_key:
-        # MiniMax: OpenAI-compatible API with large context window (up to 204K tokens).
-        # Defaults to MiniMax-M3; override MINIMAX_MODEL_ID if your account/region
-        # doesn't have access to it (e.g. set it to MiniMax-M2.7).
-        chat_client = OpenAIChatClient(
-            base_url=os.environ.get("MINIMAX_BASE_URL", "https://api.minimax.io/v1"),
-            api_key=minimax_api_key,
-            model_id=os.environ.get("MINIMAX_MODEL_ID", "MiniMax-M3"),
-        )
-        print("Using MiniMax provider")
-    elif azure_openai_endpoint:
-        # Azure OpenAI (Responses API). Sign in with `az login` for keyless Entra ID auth.
-        # GitHub Models is deprecated (retiring July 2026) and does not support the Responses API.
-        chat_client = OpenAIChatClient(
-            azure_endpoint=azure_openai_endpoint,
-            credential=AzureCliCredential(),
-            model_id=os.environ.get("AZURE_OPENAI_DEPLOYMENT", "gpt-5-mini"),
-        )
-        print("Using Azure OpenAI (Responses API) provider")
-    else:
-        # Default: OpenAI
-        chat_client = OpenAIChatClient(model_id="gpt-5-mini")
-        print("Using OpenAI provider")
+    # --- local vLLM replacement ---
+    import sys
+    from pathlib import Path as _Path
+    _ROOT = _Path(__file__).resolve().parent
+    for _candidate in [_ROOT, *_ROOT.parents]:
+        if (_candidate / "local_llm.py").exists():
+            if str(_candidate) not in sys.path:
+                sys.path.insert(0, str(_candidate))
+            break
+    from local_llm import make_local_chat_client
+    chat_client = make_local_chat_client()  # 本代码已经替换为本地api
+    print("本代码已经替换为本地api")
+    print("Using local vLLM provider")
 
 
 
@@ -221,7 +247,7 @@ async def main() -> None:
 
     # Agent 1: Check availability
     availability_agent = AgentExecutor(
-        chat_client.create_agent(
+        chat_client.as_agent(  # 本代码已经替换为本地api (was create_agent)
             instructions=(
                 "You are a hotel booking assistant that checks room availability. "
                 "Use the hotel_booking tool to check if rooms are available at the destination. "
@@ -229,7 +255,7 @@ async def main() -> None:
                 "The message should summarize the availability status."
             ),
             tools=[hotel_booking],
-            response_format=BookingCheckResult,
+            default_options={"response_format": BookingCheckResult},  # 本代码已经替换为本地api
         ),
         id="availability_agent",
     )
@@ -237,7 +263,7 @@ async def main() -> None:
 
     # Agent 2: Suggest alternative (when no rooms)
     alternative_agent = AgentExecutor(
-        chat_client.create_agent(
+        chat_client.as_agent(  # 本代码已经替换为本地api (was create_agent)
             instructions=(
                 "You are a helpful travel assistant. When a user cannot find hotels in their requested city, "
                 "suggest an alternative nearby city that has availability. "
@@ -245,7 +271,7 @@ async def main() -> None:
                 "Choose from: Stockholm, Seattle, Tokyo, London, or Amsterdam (these have rooms). "
                 "Make your suggestion sound appealing and helpful."
             ),
-            response_format=AlternativeResult,
+            default_options={"response_format": AlternativeResult},  # 本代码已经替换为本地api
         ),
         id="alternative_agent",
     )
@@ -253,14 +279,14 @@ async def main() -> None:
 
     # Agent 3: Suggest booking (when rooms available)
     booking_agent = AgentExecutor(
-        chat_client.create_agent(
+        chat_client.as_agent(  # 本代码已经替换为本地api (was create_agent)
             instructions=(
                 "You are a booking assistant. The user has found available hotel rooms. "
                 "Encourage them to book by highlighting the destination's appeal. "
                 "Return JSON with fields: destination (string), action (string), and message (string). "
                 "The action should be 'book_now' and message should be encouraging."
             ),
-            response_format=BookingConfirmation,
+            default_options={"response_format": BookingConfirmation},  # 本代码已经替换为本地api
         ),
         id="booking_agent",
     )
@@ -270,10 +296,14 @@ async def main() -> None:
     print("STEP 2: Building Workflow with Conditional Edges")
     print("=" * 80)
 
-    # Build the workflow
+    # --- original teaching: WorkflowBuilder().set_start_executor(...) ---
+    # MAF 1.10 requires start_executor= at construction time.
+    # 本代码已经替换为本地api
     workflow = (
-        WorkflowBuilder()
-        .set_start_executor(availability_agent)
+        WorkflowBuilder(
+            start_executor=availability_agent,
+            output_executors=[display_result],
+        )
         # NO AVAILABILITY PATH: availability_agent → alternative_agent → display_result
         .add_edge(availability_agent, alternative_agent, condition=no_availability_condition)
         .add_edge(alternative_agent, display_result)
@@ -294,9 +324,10 @@ async def main() -> None:
     print("TEST CASE 1: Checking Paris (NO AVAILABILITY)")
     print("=" * 80)
 
+    # --- original: ChatMessage(Role.USER, text=...) ---
     request1 = AgentExecutorRequest(
-        messages=[ChatMessage(Role.USER, text="I want to book a hotel in Paris")], should_respond=True
-    )
+        messages=[Message(role="user", contents=["I want to book a hotel in Paris"])], should_respond=True
+    )  # 本代码已经替换为本地api
 
     events1 = await workflow.run(request1)
     outputs1 = events1.get_outputs()
@@ -304,9 +335,18 @@ async def main() -> None:
     if outputs1:
         print("\n📊 WORKFLOW OUTPUT (Paris):")
         print("-" * 80)
-        result1 = AlternativeResult.model_validate_json(outputs1[0])
-        print(f"🏨 Alternative Destination: {result1.alternative_destination}")
-        print(f"💡 Reason: {result1.reason}")
+        # Local models may route either branch; accept either structured schema.
+        # 本代码已经替换为本地api
+        raw1 = outputs1[0]
+        try:
+            alt = AlternativeResult.model_validate_json(raw1)
+            print(f"🏨 Alternative Destination: {alt.alternative_destination}")
+            print(f"💡 Reason: {alt.reason}")
+        except Exception:
+            conf = BookingConfirmation.model_validate_json(raw1)
+            print(f"🏨 Destination: {conf.destination}")
+            print(f"✅ Action: {conf.action}")
+            print(f"💬 Message: {conf.message}")
         print("-" * 80)
 
     # ============================================================================
@@ -316,9 +356,10 @@ async def main() -> None:
     print("TEST CASE 2: Checking Stockholm (HAS AVAILABILITY)")
     print("=" * 80)
 
+    # --- original: ChatMessage(Role.USER, text=...) ---
     request2 = AgentExecutorRequest(
-        messages=[ChatMessage(Role.USER, text="I want to book a hotel in Stockholm")], should_respond=True
-    )
+        messages=[Message(role="user", contents=["I want to book a hotel in Stockholm"])], should_respond=True
+    )  # 本代码已经替换为本地api
 
     events2 = await workflow.run(request2)
     outputs2 = events2.get_outputs()
@@ -326,10 +367,17 @@ async def main() -> None:
     if outputs2:
         print("\n📊 WORKFLOW OUTPUT (Stockholm):")
         print("-" * 80)
-        result2 = BookingConfirmation.model_validate_json(outputs2[0])
-        print(f"🏨 Destination: {result2.destination}")
-        print(f"✅ Action: {result2.action}")
-        print(f"💬 Message: {result2.message}")
+        # 本代码已经替换为本地api
+        raw2 = outputs2[0]
+        try:
+            conf = BookingConfirmation.model_validate_json(raw2)
+            print(f"🏨 Destination: {conf.destination}")
+            print(f"✅ Action: {conf.action}")
+            print(f"💬 Message: {conf.message}")
+        except Exception:
+            alt = AlternativeResult.model_validate_json(raw2)
+            print(f"🏨 Alternative Destination: {alt.alternative_destination}")
+            print(f"💡 Reason: {alt.reason}")
         print("-" * 80)
 
     print("\n" + "=" * 80)

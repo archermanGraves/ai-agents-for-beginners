@@ -3,6 +3,12 @@
 """
 Sample: Host a LangChain / LangGraph agent as a Microsoft Foundry hosted agent.
 
+NOTE (local_api fork): This sample targets Foundry **hosted** Responses deployment
+and is NOT switched to local vLLM. Keep this file as teaching material.
+本地 vLLM 无法替代 Foundry hosted agent 运行时；本文件未替换。
+# 本代码已经替换为本地api — 对本文件：不适用 / skip
+
+
 This sample shows how to take an agent built with LangGraph and expose it through
 the Microsoft Foundry hosted-agent **Responses** protocol using the
 `langchain_azure_ai.agents.hosting` package. Foundry then manages the runtime,

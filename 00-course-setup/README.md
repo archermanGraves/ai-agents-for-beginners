@@ -379,3 +379,44 @@ If you have any issues running this setup, hop into our <a href="https://discord
 You are now ready to run the code for this course. Happy learning more about the world of AI Agents! 
 
 [Introduction to AI Agents and Agent Use Cases](../01-intro-to-ai-agents/README.md)
+
+## Local vLLM (this fork: `local_api` branch)
+
+> 本代码已经替换为本地api
+
+This fork can run many Python notebooks against a **local vLLM** OpenAI-compatible server instead of Azure Foundry / Azure OpenAI.
+
+### Start local VLM (from host `tool.sh` CLI 2)
+
+```bash
+bash /home/wanghao/desktop/code/qwen3.5_4B/run_qwen35_4B.sh
+curl --noproxy '*' -sS http://127.0.0.1:8030/v1/models | python3 -m json.tool
+```
+
+### Env vars (see `.env.example`)
+
+```bash
+LOCAL_VLLM_BASE_URL=http://127.0.0.1:8030/v1
+LOCAL_VLLM_API_KEY=EMPTY
+# LOCAL_VLLM_MODEL=   # optional; auto-detected from /v1/models if empty
+```
+
+### Shared helper
+
+Use repo-root [`local_llm.py`](../local_llm.py):
+
+- `make_local_chat_client()` → Microsoft Agent Framework `OpenAIChatCompletionClient` (Chat Completions)
+- `make_local_openai_sdk_client()` → `openai.OpenAI` for raw SDK notebooks
+
+Original Azure / Foundry teaching code is **kept** in notebooks (commented), with local replacement **appended** after it.
+
+### Not fully local
+
+These lessons still need cloud services beyond the LLM, or are skipped in this pass:
+
+- Lesson 05 Azure AI Search index
+- Lesson 08 Bing grounding / some Foundry-only workflows
+- Lesson 15 Browser-Use Azure-specific LLM class (partial)
+- .NET samples (not migrated)
+- `translations/` (not migrated)
+

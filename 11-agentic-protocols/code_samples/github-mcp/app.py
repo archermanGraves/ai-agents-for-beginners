@@ -268,11 +268,25 @@ async def call_tool(tool_use):
 async def on_chat_start():
 
     # Create the Microsoft Foundry Agent Service provider
-    provider = FoundryChatClient(
-        project_endpoint=os.environ["AZURE_AI_PROJECT_ENDPOINT"],
-        model=os.environ["AZURE_AI_MODEL_DEPLOYMENT_NAME"],
-        credential=AzureCliCredential(),
-    )
+    # --- original teaching code (kept, not deleted) ---
+    # provider = FoundryChatClient(
+    #     project_endpoint=os.environ["AZURE_AI_PROJECT_ENDPOINT"],
+    #     model=os.environ["AZURE_AI_MODEL_DEPLOYMENT_NAME"],
+    #     credential=AzureCliCredential(),
+    # )
+
+    # --- local vLLM replacement ---
+    import sys
+    from pathlib import Path as _Path
+    _ROOT = _Path(__file__).resolve().parent
+    for _candidate in [_ROOT, *_ROOT.parents]:
+        if (_candidate / "local_llm.py").exists():
+            if str(_candidate) not in sys.path:
+                sys.path.insert(0, str(_candidate))
+            break
+    from local_llm import make_local_chat_client
+    provider = make_local_chat_client()  # 本代码已经替换为本地api
+    print("本代码已经替换为本地api")
 
     # Create agents using MAF
     github_agent = provider.as_agent(
